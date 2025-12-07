@@ -7,11 +7,10 @@ import (
 	"os"
 
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/handler/extension"
-	"github.com/99designs/gqlgen/graphql/handler/lru"
-	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
-	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/go-chi/chi/v5"
+
+	database "btp_tokens/internal/pkg/db/migrations/postgres"
 )
 
 const defaultPort = "8080"
@@ -22,22 +21,29 @@ func main() {
 		port = defaultPort
 	}
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	router := chi.NewRouter()
 
-	srv.AddTransport(transport.Options{})
-	srv.AddTransport(transport.GET{})
-	srv.AddTransport(transport.POST{})
+	database.InitDB()
+	defer database.CloseDB()
+	database.Migrate()
 
-	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
 
-	srv.Use(extension.Introspection{})
-	srv.Use(extension.AutomaticPersistedQuery{
-		Cache: lru.New[string](100),
-	})
 
-	http.Handle("/", playground.Handler("GraphQL playground", "/query"))
-	http.Handle("/query", srv)
+	// srv.AddTransport(transport.Options{})
+	// srv.AddTransport(transport.GET{})
+	// srv.AddTransport(transport.POST{})
+
+	// srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+
+	// srv.Use(extension.Introspection{})
+	// srv.Use(extension.AutomaticPersistedQuery{
+	// 	Cache: lru.New[string](100),
+	// })
+
+	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
+	router.Handle("/query", srv)
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }

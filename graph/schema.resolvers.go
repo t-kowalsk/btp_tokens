@@ -18,7 +18,9 @@ func (r *mutationResolver) Transfer(ctx context.Context, input model.Transfer) (
 
 // Empty is the resolver for the _empty field.
 func (r *queryResolver) Empty(ctx context.Context) (*string, error) {
-	panic(fmt.Errorf("not implemented: Empty - _empty"))
+	// panic(fmt.Errorf("not implemented: Empty - _empty"))
+	msg := "Hello, world!"
+    return &msg, nil
 }
 
 // Mutation returns MutationResolver implementation.
