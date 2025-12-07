@@ -2,27 +2,21 @@
 #
 # https://gqlgen.com/getting-started/
 
-type Todo {
-  id: ID!
-  text: String!
-  done: Boolean!
-  user: User!
-}
-
-type User {
-  id: ID!
-  name: String!
+type Wallet {
+  address: String!
+  balance: String!
 }
 
 type Query {
-  todos: [Todo!]!
+  _empty: String
 }
 
-input NewTodo {
-  text: String!
-  userId: String!
+input Transfer {
+  from_address: String!
+  to_address: String!
+  amount: String!
 }
 
 type Mutation {
-  createTodo(input: NewTodo!): Todo!
+  transfer(input: Transfer!): String!
 }

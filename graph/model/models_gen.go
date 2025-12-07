@@ -5,22 +5,16 @@ package model
 type Mutation struct {
 }
 
-type NewTodo struct {
-	Text   string `json:"text"`
-	UserID string `json:"userId"`
-}
-
 type Query struct {
 }
 
-type Todo struct {
-	ID   string `json:"id"`
-	Text string `json:"text"`
-	Done bool   `json:"done"`
-	User *User  `json:"user"`
+type Transfer struct {
+	FromAddress string `json:"from_address"`
+	ToAddress   string `json:"to_address"`
+	Amount      string `json:"amount"`
 }
 
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type Wallet struct {
+	Address string `json:"address"`
+	Balance string `json:"balance"`
 }
