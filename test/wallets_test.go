@@ -377,3 +377,96 @@ func TestTransferRaceCondition(t *testing.T) {
     t.Log("Wallet2:", balance2)
     t.Log("Wallet3:", balance3)
 }
+
+
+func TestTransferRaceConditionManySendersAndReceivers(t *testing.T) {
+    initial_wallets := []Wallet{
+        {Address: "0x0000000000000000000000000000000000000001", Balance: decimal.NewFromInt(1000000)},
+        {Address: "0x0000000000000000000000000000000000000002", Balance: decimal.NewFromInt(3000000)},
+        {Address: "0x0000000000000000000000000000000000000003", Balance: decimal.NewFromInt(5000000)},
+    }
+
+    db, server := SetUpTest(t, initial_wallets)
+    walletsService := &wallets.WalletsService{DB: db}
+
+    defer database.CloseDB()
+	defer server.Close()
+
+    ready := make(chan struct{}, 4)
+    start := make(chan struct{})
+    results := make(chan string, 4)
+    
+    var wg sync.WaitGroup
+    wg.Add(4)
+
+    amounts := []string{"2000000", "3000000", "2000000", "4000000"}
+    senders := []string{
+        "0x0000000000000000000000000000000000000003", 
+        "0x0000000000000000000000000000000000000003", 
+        "0x0000000000000000000000000000000000000001",
+        "0x0000000000000000000000000000000000000002"}
+	receivers := []string{
+        "0x0000000000000000000000000000000000000002", 
+        "0x0000000000000000000000000000000000000001", 
+        "0x0000000000000000000000000000000000000003",
+        "0x0000000000000000000000000000000000000001"}
+    
+    for i:= 0; i < 4; i++ {
+        go func (idx int)  {
+            defer wg.Done()
+            ready <- struct{}{}
+
+            <- start
+            
+            mutation := fmt.Sprintf(`
+            mutation {
+                transfer(input: {
+                    from_address: "%s",
+                    to_address: "%s",
+                    amount: "%s"
+                })
+            }
+            `, senders[idx], receivers[idx], amounts[idx])
+
+            resp := doMutation(t, server.URL, mutation)
+            if errors, ok := resp["errors"]; ok {
+                results <- fmt.Sprintf("error:\n from: %v to: %v \n amount: %v \n error msg: %v", senders[idx], receivers[idx], amounts[idx],  errors)
+            } else {
+                results <- fmt.Sprintf("success: \n from: %v to: %v \n amount: %v \n senders updated balance %v", senders[idx], receivers[idx], amounts[idx], resp["data"].(map[string]interface{})["transfer"])
+            }
+        }(i)
+    }
+
+    for i := 0; i < 4; i++ {
+        <-ready
+    }
+
+    close(start)
+
+    wg.Wait()
+    close(results)
+
+    for r := range results {
+        t.Log(r) 
+    }
+
+    balance1, _ := walletsService.GetWalletBalance(context.Background(), "0x0000000000000000000000000000000000000001")
+    balance2, _ := walletsService.GetWalletBalance(context.Background(), "0x0000000000000000000000000000000000000002")
+    balance3, _ := walletsService.GetWalletBalance(context.Background(), "0x0000000000000000000000000000000000000003")
+
+    total := balance1.Add(balance2).Add(balance3)
+    expectedTotal := decimal.NewFromInt(9000000)
+
+    if !total.Equal(expectedTotal) {
+        t.Fatalf("Final sum mismatch: expected %s, got %s", expectedTotal, total)
+    }
+
+    if balance1.IsNegative() || balance2.IsNegative() || balance3.IsNegative() {
+        t.Fatalf("Negative balance: %s %s %s", balance1, balance2, balance3)
+    }
+
+    t.Log("Final balances:")
+    t.Log("Wallet1:", balance1)
+    t.Log("Wallet2:", balance2)
+    t.Log("Wallet3:", balance3)
+}
