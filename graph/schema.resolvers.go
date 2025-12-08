@@ -19,20 +19,24 @@ import (
 func (r *mutationResolver) Transfer(ctx context.Context, input model.Transfer) (string, error) {
 	amount, err := decimal.NewFromString(input.Amount)
 	if err != nil{
-		return "", fmt.Errorf("Invalid amount format: %w", err)
+		return "", fmt.Errorf("invalid amount format: %w", err)
 
 	}
 
 	if amount.IsNegative() || amount.IsZero() {
-		return "", errors.New("Amount must be positive")
+		return "", errors.New("amount must be positive")
+	}
+
+	if !amount.Equal(amount.Truncate(0)) {
+    	return "", errors.New("amount must be an integer (cant be floating point)")
 	}
 
 	updatedBalance, err := r.WalletsService.Transfer(ctx, input.FromAddress, input.ToAddress, amount)
 	if err != nil {
 		if errors.Is(err, wallets.ErrorInsufficientBalance) {
-			return "", errors.New("Insufficient balance")
+			return "", errors.New("insufficient balance")
 		}
-		return "", fmt.Errorf("Tranfer fail: %w", err)
+		return "", fmt.Errorf("transfer fail: %w", err)
 	}
 
 	return updatedBalance.String(), nil

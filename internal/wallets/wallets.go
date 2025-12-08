@@ -18,7 +18,7 @@ type WalletsService struct {
 	DB *sql.DB
 }
 
-var ErrorInsufficientBalance = errors.New("Insufficient wallet balance")
+var ErrorInsufficientBalance = errors.New("insufficient wallet balance")
 
 func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAddress string, amount decimal.Decimal) (decimal.Decimal, error){
 	tx, err := s.DB.BeginTx(ctx, nil)
@@ -33,7 +33,7 @@ func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAdd
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows){
-			return decimal.Decimal{}, errors.New("Sender wallet not found")
+			return decimal.Decimal{}, errors.New("sender wallet not found")
 		}
 		return decimal.Decimal{}, err
 	}
@@ -48,9 +48,18 @@ func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAdd
 		return decimal.Decimal{}, err
 	}
 
-	_, err = tx.ExecContext(ctx, "UPDATE Wallets SET Balance = Wallets.Balance + $1 WHERE Address = $2", amount, toAddress)
+	res, err := tx.ExecContext(ctx, "UPDATE Wallets SET Balance = Wallets.Balance + $1 WHERE Address = $2", amount, toAddress)
 	if err != nil {
 		return decimal.Decimal{}, err
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return decimal.Decimal{}, err
+	}
+
+	if rowsAffected == 0 {
+    	return decimal.Decimal{}, errors.New("recipient wallet not found")
 	}
 
 	err = tx.Commit()
