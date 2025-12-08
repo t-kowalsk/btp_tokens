@@ -7,19 +7,45 @@ package graph
 
 import (
 	"btp_tokens/graph/model"
+	"btp_tokens/internal/wallets"
 	"context"
+	"errors"
 	"fmt"
+
+	"github.com/shopspring/decimal"
 )
 
 // Transfer is the resolver for the transfer field.
 func (r *mutationResolver) Transfer(ctx context.Context, input model.Transfer) (string, error) {
-	panic(fmt.Errorf("not implemented: Transfer - transfer"))
+	amount, err := decimal.NewFromString(input.Amount)
+	if err != nil{
+		return "", fmt.Errorf("invalid amount format: %w", err)
+
+	}
+
+	if amount.IsNegative() || amount.IsZero() {
+		return "", errors.New("amount must be positive")
+	}
+
+	if !amount.Equal(amount.Truncate(0)) {
+    	return "", errors.New("amount must be an integer (cant be floating point)")
+	}
+
+	updatedBalance, err := r.WalletsService.Transfer(ctx, input.FromAddress, input.ToAddress, amount)
+	if err != nil {
+		if errors.Is(err, wallets.ErrorInsufficientBalance) {
+			return "", errors.New("insufficient balance")
+		}
+		return "", fmt.Errorf("transfer fail: %w", err)
+	}
+
+	return updatedBalance.String(), nil
 }
 
 // Empty is the resolver for the _empty field.
 func (r *queryResolver) Empty(ctx context.Context) (*string, error) {
 	// panic(fmt.Errorf("not implemented: Empty - _empty"))
-	msg := "Hello, world!"
+	msg := "empty"
     return &msg, nil
 }
 
