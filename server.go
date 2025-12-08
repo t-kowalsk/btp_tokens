@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	database "btp_tokens/internal/pkg/db/migrations/postgres"
+	"btp_tokens/internal/wallets"
 )
 
 const defaultPort = "8080"
@@ -24,22 +25,16 @@ func main() {
 	router := chi.NewRouter()
 
 	database.InitDB()
+	db := database.Db
 	defer database.CloseDB()
-	database.Migrate()
+	database.Migrate("internal/pkg/db/migrations/postgres")
 
-	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{}}))
+	walletsService := &wallets.WalletsService{DB: db}
 
 
-	// srv.AddTransport(transport.Options{})
-	// srv.AddTransport(transport.GET{})
-	// srv.AddTransport(transport.POST{})
 
-	// srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: &graph.Resolver{ WalletsService: walletsService}}))
 
-	// srv.Use(extension.Introspection{})
-	// srv.Use(extension.AutomaticPersistedQuery{
-	// 	Cache: lru.New[string](100),
-	// })
 
 	router.Handle("/", playground.Handler("GraphQL playground", "/query"))
 	router.Handle("/query", srv)

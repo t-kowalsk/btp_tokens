@@ -43,14 +43,12 @@ func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAdd
 		return decimal.Decimal{}, ErrorInsufficientBalance
 	}
 
-	balanceUpdate := "UPDATE Wallets SET Balance = Wallets.Balance + $1 WHERE Address = $2"
-
-	_, err = tx.ExecContext(ctx, balanceUpdate, newSenderBalance, fromAddress)
+	_, err = tx.ExecContext(ctx, "UPDATE Wallets SET Balance = $1 WHERE Address = $2", newSenderBalance, fromAddress)
 	if err != nil {
 		return decimal.Decimal{}, err
 	}
 
-	_, err = tx.ExecContext(ctx, balanceUpdate, amount, toAddress)
+	_, err = tx.ExecContext(ctx, "UPDATE Wallets SET Balance = Wallets.Balance + $1 WHERE Address = $2", amount, toAddress)
 	if err != nil {
 		return decimal.Decimal{}, err
 	}

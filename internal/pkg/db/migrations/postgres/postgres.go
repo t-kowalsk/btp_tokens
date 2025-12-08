@@ -30,16 +30,26 @@ func CloseDB() error {
 	return Db.Close()
 }
 
-func Migrate() {
+func Migrate(path string) {
 	if err := Db.Ping(); err != nil {
 		log.Fatal(err)
 	}
-	driver, _ := postgres.WithInstance(Db, &postgres.Config{}) 
-	m, _ := migrate.NewWithDatabaseInstance(
-		"file://internal/pkg/db/migrations/postgres", 
+	driver, err := postgres.WithInstance(Db, &postgres.Config{}) 
+
+	if err != nil {
+		log.Fatal("failed to create migrate driver:", err)
+	}
+
+	
+	m, err := migrate.NewWithDatabaseInstance(
+		"file://" + path, 
 		"postgres",
 		driver,
 	)
+	if err != nil {
+		log.Fatal("failed to create migrate instance:", err)
+	}
+
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 		log.Fatal(err)
 	}
