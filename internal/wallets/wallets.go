@@ -27,6 +27,11 @@ func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAdd
 	}
 
 	defer tx.Rollback()
+
+	if fromAddress == toAddress {
+        return decimal.Decimal{}, errors.New("cannot transfer to the same address")
+    }
+
 	var senderBalance decimal.Decimal
 	queryFrom := "SELECT Balance FROM Wallets WHERE Address = $1 FOR UPDATE"
 	err = tx.QueryRowContext(ctx, queryFrom, fromAddress).Scan(&senderBalance)
@@ -48,20 +53,16 @@ func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAdd
 		return decimal.Decimal{}, err
 	}
 
-	res, err := tx.ExecContext(ctx, "UPDATE Wallets SET Balance = Wallets.Balance + $1 WHERE Address = $2", amount, toAddress)
+	_, err = tx.ExecContext(ctx, `
+        INSERT INTO Wallets (Address, Balance) 
+        VALUES ($2, $1)
+        ON CONFLICT (Address) 
+        DO UPDATE SET Balance = Wallets.Balance + EXCLUDED.Balance;
+    `, amount, toAddress)
 	if err != nil {
 		return decimal.Decimal{}, err
 	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return decimal.Decimal{}, err
-	}
-
-	if rowsAffected == 0 {
-    	return decimal.Decimal{}, errors.New("recipient wallet not found")
-	}
-
+	
 	err = tx.Commit()
 	if err != nil {
 		return decimal.Decimal{}, err

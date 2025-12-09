@@ -16,6 +16,7 @@ import (
 
 	"github.com/99designs/gqlgen/graphql/handler"
 	"github.com/shopspring/decimal"
+	"github.com/stretchr/testify/require"
 )
 
 type Wallet struct {
@@ -32,9 +33,8 @@ type Transfer struct {
 
 func setupTestDB(t *testing.T) *sql.DB {
     db, err := sql.Open("postgres", "postgres://postgres:dbpass@localhost:5432/btp_tokens_test?sslmode=disable")
-    if err != nil {
-        t.Fatal(err)
-    }
+
+    require.NoError(t, err)
     database.Db = db
 
     database.Migrate("../internal/pkg/db/migrations/postgres")
@@ -77,31 +77,24 @@ func startTestServer(db *sql.DB) *httptest.Server {
 func doMutation(t *testing.T, serverURL, mutation string) map[string]interface{} {
     body, _ := json.Marshal(map[string]string{"query": mutation})
     resp, err := http.Post(serverURL, "application/json", bytes.NewBuffer(body))
-    if err != nil {
-        t.Fatal(err)
-    }
+
+    require.NoError(t, err)
     defer resp.Body.Close()
 
-    if resp.StatusCode != http.StatusOK {
-        t.Fatalf("expected 200, got %d", resp.StatusCode)
-    }
+    require.Equal(t, resp.StatusCode, http.StatusOK)
 
     var respData map[string]interface{}
-    if err := json.NewDecoder(resp.Body).Decode(&respData); err != nil {
-        t.Fatal(err)
-    }
+
+    require.NoError(t, json.NewDecoder(resp.Body).Decode(&respData))
     return respData
 }
 
 func assertGraphQLError(t *testing.T, resp map[string]interface{}, expectedMsg string) {
-    errors, ok := resp["errors"]
-    if !ok || len(errors.([]interface{})) == 0 {
-        t.Fatal("expected error but none returned")
-    }
+    require.Contains(t, resp, "errors")
+    errors := resp["errors"]
     msg := errors.([]interface{})[0].(map[string]interface{})["message"].(string)
-    if msg != expectedMsg {
-        t.Fatalf("expected error message %q, got %q", expectedMsg, msg)
-    }
+
+    require.Equal(t, expectedMsg, msg)
 }
 
 type transferTestArgs struct {
@@ -114,10 +107,9 @@ type transferTestArgs struct {
     expectedErrorMsg string
 }
 
-func transferTest(args transferTestArgs, initial_wallets []Wallet) {
-    _, server := SetUpTest(args.t, initial_wallets)
-    defer database.CloseDB()
-    defer server.Close()
+func transferTest(args transferTestArgs, initial_wallets []Wallet) (*sql.DB, *httptest.Server) {
+    db, server := SetUpTest(args.t, initial_wallets)
+
     mutation := fmt.Sprintf(`
         mutation {
             transfer(input: {
@@ -135,10 +127,11 @@ func transferTest(args transferTestArgs, initial_wallets []Wallet) {
     } else {
 
         respValue := transferResponse["data"].(map[string]interface{})[args.expectedKey]
-        if respValue != args.expectedValue {
-            args.t.Fatalf("expected %s, got %s", args.expectedValue, respValue)
-        }
+
+        require.Equal(args.t, respValue, args.expectedValue)
     }
+
+    return db, server
 }
 
 func raceConditionsTest(t *testing.T, initial_wallets []Wallet, transfers []Transfer) {
@@ -205,17 +198,14 @@ func raceConditionsTest(t *testing.T, initial_wallets []Wallet, transfers []Tran
     var total decimal.Decimal
     for i := 0; i<len(initial_wallets); i++ {
         balance, _ := walletsService.GetWalletBalance(context.Background(), initial_wallets[i].Address)
-        if balance.IsNegative(){
-            t.Fatalf("Negative balance: %s", balance)
-        }
+
+        require.False(t, balance.IsNegative(), "Negative balance: %s", balance)
         total = total.Add(balance)
         t.Logf("\nWallet%s: %s", initial_wallets[i].Address,  balance)
 
     }
 
-    if !total.Equal(expectedTotal) {
-        t.Fatalf("Final sum mismatch: expected %s, got %s", expectedTotal, total)
-    }
+    require.True(t, total.Equal(expectedTotal), "Final sum mismatch: expected %s, got %s", expectedTotal, total)
 }
 
 func TestTransferMutationWithDB(t *testing.T) {
@@ -233,7 +223,9 @@ func TestTransferMutationWithDB(t *testing.T) {
         expectedValue: "4",
         expectedErrorMsg: "",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 }
 
 func TestTransferMutation(t *testing.T) {
@@ -251,7 +243,9 @@ func TestTransferMutation(t *testing.T) {
         expectedValue: "300000",
         expectedErrorMsg: "",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 }
 
 func TestTransferNegative(t *testing.T) {
@@ -269,7 +263,9 @@ func TestTransferNegative(t *testing.T) {
         expectedValue: "",
         expectedErrorMsg: "amount must be positive",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 
 }
 
@@ -288,7 +284,9 @@ func TestTransferNotNumeric(t *testing.T) {
         expectedValue: "",
         expectedErrorMsg: "invalid amount format: can't convert 10q to decimal",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 }
 
 func TestTransferFloat(t *testing.T) {
@@ -307,7 +305,9 @@ func TestTransferFloat(t *testing.T) {
         expectedValue: "",
         expectedErrorMsg: "amount must be an integer (cant be floating point)",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 }
 
 func TestTransferInsufficientBalance(t *testing.T) {
@@ -325,7 +325,9 @@ func TestTransferInsufficientBalance(t *testing.T) {
         expectedValue: "",
         expectedErrorMsg: "insufficient balance",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 }
 
 func TestTransferWrongSenderAddress(t *testing.T) {
@@ -343,11 +345,13 @@ func TestTransferWrongSenderAddress(t *testing.T) {
         expectedValue: "",
         expectedErrorMsg: "transfer fail: sender wallet not found",
     }
-    transferTest(args, initial_wallets)
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
 }
 
 
-func TestTransferWrongReceiverAddress(t *testing.T) {
+func TestTransferCreateReceiverAddress(t *testing.T) {
     initial_wallets := []Wallet{
         {Address: "0x0000000000000000000000000000000000000001", Balance: decimal.NewFromInt(500)},
         {Address: "0x0000000000000000000000000000000000000002", Balance: decimal.NewFromInt(300)},
@@ -357,12 +361,20 @@ func TestTransferWrongReceiverAddress(t *testing.T) {
         t: t,
         fromAddress: "0x0000000000000000000000000000000000000001",
         toAddress: "0x0000000000000000000000000000000000000003",
-        amount: "100",
-        expectedKey: "errors",
-        expectedValue: "",
-        expectedErrorMsg: "transfer fail: recipient wallet not found",
+        amount: "400",
+        expectedKey: "transfer",
+        expectedValue: "100",
+        expectedErrorMsg: "",
     }
-    transferTest(args, initial_wallets)
+    db, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
+    walletsService := &wallets.WalletsService{DB: db}
+    receiverBalance, err := walletsService.GetWalletBalance(context.Background(), "0x0000000000000000000000000000000000000003")
+    require.NoError(t, err)
+
+    expectedReceiverBalance, _ := decimal.NewFromString("400")
+    require.True(t, receiverBalance.Equal(expectedReceiverBalance))
 }
 
 func TestTransferRaceCondition(t *testing.T) {

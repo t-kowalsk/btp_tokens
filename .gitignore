@@ -1,5 +1,14 @@
 .vscode/
+.idea/
 *.exe
 *.exe~
+*.dll
 *.test
+*.out
 .env
+
+server
+
+.DS_Store
+Thumbs.db
+Desktop.ini
