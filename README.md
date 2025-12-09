@@ -22,7 +22,7 @@ The composed container named: **postgres-btp**, runs on port: **5432**, with pas
 ## Run application
 To run the GraphQL server:
 ```
-go run .\server.go
+go run ./server.go
 ```
 
 The server runs on http://localhost:8080/ address.
