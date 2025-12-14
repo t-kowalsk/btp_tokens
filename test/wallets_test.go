@@ -30,7 +30,7 @@ type Wallet struct {
 type Transfer struct {
     FromAddress string
     ToAddress string
-    Amount string
+    Amount decimal.Decimal
 }
 
 
@@ -127,7 +127,7 @@ func transferTest(args transferTestArgs, initial_wallets []Wallet) (*sql.DB, *ht
             transfer(input: {
             from_address: "%s", 
             to_address: "%s", 
-            amount: "%s"
+            amount: %s
             }) 
         }
     `, args.fromAddress, args.toAddress, args.amount)
@@ -168,28 +168,29 @@ func raceConditionsTest(t *testing.T, initial_wallets []Wallet, transfers []Tran
     wg.Add(transfersNumber)
     
     for i:= 0; i < transfersNumber; i++ {
+        ctx := context.Background()
+        transferData := transfers[i]
+
         go func (idx int)  {
             defer wg.Done()
             ready <- struct{}{}
 
             <- start
             
-            mutation := fmt.Sprintf(`
-            mutation {
-                transfer(input: {
-                    from_address: "%s",
-                    to_address: "%s",
-                    amount: "%s"
-                })
-            }
-            `, transfers[idx].FromAddress, transfers[idx].ToAddress, transfers[idx].Amount)
 
-            resp := doMutation(t, server.URL, mutation)
-            if errors, ok := resp["errors"]; ok {
-                results <- fmt.Sprintf("error:\n from: %v to: %v \n amount: %v \n error msg: %v", transfers[idx].FromAddress, transfers[idx].ToAddress, transfers[idx].Amount,  errors)
+            resp, err := walletsService.Transfer(
+				ctx, 
+				transferData.FromAddress, 
+				transferData.ToAddress, 
+				transferData.Amount,
+			)
+
+            if err != nil {
+                results <- fmt.Sprintf("error:\n from: %v to: %v \n amount: %v \n error msg: %v", transferData.FromAddress, transferData.ToAddress, transferData.Amount,  err.Error())
             } else {
-                results <- fmt.Sprintf("success: \n from: %v to: %v \n amount: %v \n senders updated balance %v", transfers[idx].FromAddress, transfers[idx].ToAddress, transfers[idx].Amount, resp["data"].(map[string]interface{})["transfer"])
+                results <- fmt.Sprintf("success: \n from: %v to: %v \n amount: %v \n senders updated balance %v", transferData.FromAddress, transferData.ToAddress, transferData.Amount, resp)
             }
+
         }(i)
     }
 
@@ -230,7 +231,7 @@ func TestTransferMutationWithDB(t *testing.T) {
         t: t,
         fromAddress: "0x0000000000000000000000000000000000000001",
         toAddress: "0x0000000000000000000000000000000000000002",
-        amount: "6",
+        amount: `6`,
         expectedKey: "transfer",
         expectedValue: "4",
         expectedErrorMsg: "",
@@ -250,7 +251,27 @@ func TestTransferMutation(t *testing.T) {
         t: t,
         fromAddress: "0x0000000000000000000000000000000000000001",
         toAddress: "0x0000000000000000000000000000000000000002",
-        amount: "700000",
+        amount: `700000`,
+        expectedKey: "transfer",
+        expectedValue: "300000",
+        expectedErrorMsg: "",
+    }
+    _, server := transferTest(args, initial_wallets)
+    defer database.CloseDB()
+    defer server.Close()
+}
+
+func TestTransferString(t *testing.T) {
+    initial_wallets := []Wallet{
+        {Address: "0x0000000000000000000000000000000000000001", Balance: decimal.NewFromInt(1000000)},
+        {Address: "0x0000000000000000000000000000000000000002", Balance: decimal.NewFromInt(400000)},
+    }
+
+    args := transferTestArgs{
+        t: t,
+        fromAddress: "0x0000000000000000000000000000000000000001",
+        toAddress: "0x0000000000000000000000000000000000000002",
+        amount: `"700000"`,
         expectedKey: "transfer",
         expectedValue: "300000",
         expectedErrorMsg: "",
@@ -270,7 +291,7 @@ func TestTransferNegative(t *testing.T) {
         t: t,
         fromAddress: "0x0000000000000000000000000000000000000001",
         toAddress: "0x0000000000000000000000000000000000000002",
-        amount: "-100",
+        amount: `-100`,
         expectedKey: "errors",
         expectedValue: "",
         expectedErrorMsg: "amount must be positive",
@@ -291,7 +312,7 @@ func TestTransferNotNumeric(t *testing.T) {
         t: t,
         fromAddress: "0x0000000000000000000000000000000000000001",
         toAddress: "0x0000000000000000000000000000000000000002",
-        amount: "10q",
+        amount: `"10q"`,
         expectedKey: "errors",
         expectedValue: "",
         expectedErrorMsg: "incorrect decimal format: can't convert 10q to decimal",
@@ -315,7 +336,7 @@ func TestTransferFloat(t *testing.T) {
         amount: "100.7",
         expectedKey: "errors",
         expectedValue: "",
-        expectedErrorMsg: "amount must be an integer (cant be floating point)",
+        expectedErrorMsg: "decimal must be given as an int or a string, received float64",
     }
     _, server := transferTest(args, initial_wallets)
     defer database.CloseDB()
@@ -398,9 +419,9 @@ func TestTransferRaceCondition(t *testing.T) {
     }
     
     transfers := []Transfer{
-        {FromAddress: "0x0000000000000000000000000000000000000002", ToAddress: "0x0000000000000000000000000000000000000001", Amount: "1"},
-        {FromAddress: "0x0000000000000000000000000000000000000001", ToAddress: "0x0000000000000000000000000000000000000002", Amount: "4"},
-        {FromAddress: "0x0000000000000000000000000000000000000001", ToAddress: "0x0000000000000000000000000000000000000003", Amount: "7"},
+        {FromAddress: "0x0000000000000000000000000000000000000002", ToAddress: "0x0000000000000000000000000000000000000001", Amount: decimal.NewFromInt(1)},
+        {FromAddress: "0x0000000000000000000000000000000000000001", ToAddress: "0x0000000000000000000000000000000000000002", Amount: decimal.NewFromInt(4)},
+        {FromAddress: "0x0000000000000000000000000000000000000001", ToAddress: "0x0000000000000000000000000000000000000003", Amount: decimal.NewFromInt(7)},
     }
 
     raceConditionsTest(t, initial_wallets, transfers)
@@ -415,10 +436,10 @@ func TestTransferRaceConditionManySendersAndReceivers(t *testing.T) {
     }
 
     transfers := []Transfer{
-            {FromAddress: "0x0000000000000000000000000000000000000003", ToAddress: "0x0000000000000000000000000000000000000002", Amount: "2000000"},
-            {FromAddress: "0x0000000000000000000000000000000000000003", ToAddress: "0x0000000000000000000000000000000000000001", Amount: "3000000"},
-            {FromAddress: "0x0000000000000000000000000000000000000001", ToAddress: "0x0000000000000000000000000000000000000003", Amount: "2000000"},
-            {FromAddress: "0x0000000000000000000000000000000000000002", ToAddress: "0x0000000000000000000000000000000000000001", Amount: "4000000"},
+            {FromAddress: "0x0000000000000000000000000000000000000003", ToAddress: "0x0000000000000000000000000000000000000002", Amount: decimal.NewFromInt(2000000)},
+            {FromAddress: "0x0000000000000000000000000000000000000003", ToAddress: "0x0000000000000000000000000000000000000001", Amount: decimal.NewFromInt(3000000)},
+            {FromAddress: "0x0000000000000000000000000000000000000001", ToAddress: "0x0000000000000000000000000000000000000003", Amount: decimal.NewFromInt(2000000)},
+            {FromAddress: "0x0000000000000000000000000000000000000002", ToAddress: "0x0000000000000000000000000000000000000001", Amount: decimal.NewFromInt(4000000)},
         }
 
     raceConditionsTest(t, initial_wallets, transfers)
