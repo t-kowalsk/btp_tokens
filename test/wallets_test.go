@@ -282,7 +282,7 @@ func TestTransferNotNumeric(t *testing.T) {
         amount: "10q",
         expectedKey: "errors",
         expectedValue: "",
-        expectedErrorMsg: "invalid amount format: can't convert 10q to decimal",
+        expectedErrorMsg: "incorrect decimal format: can't convert 10q to decimal",
     }
     _, server := transferTest(args, initial_wallets)
     defer database.CloseDB()
