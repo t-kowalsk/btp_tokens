@@ -33,14 +33,37 @@ func (s *WalletsService) Transfer(ctx context.Context, fromAddress string, toAdd
     }
 
 	var senderBalance decimal.Decimal
-	queryFrom := "SELECT Balance FROM Wallets WHERE Address = $1 FOR UPDATE"
-	err = tx.QueryRowContext(ctx, queryFrom, fromAddress).Scan(&senderBalance)
+	queryFrom := "SELECT Address, Balance FROM Wallets WHERE Address IN ($1, $2) ORDER BY Address ASC FOR UPDATE"
+
+	rows, err := tx.QueryContext(ctx, queryFrom, fromAddress, toAddress)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows){
-			return decimal.Decimal{}, errors.New("sender wallet not found")
-		}
 		return decimal.Decimal{}, err
+	}
+	defer rows.Close()
+
+	foundSender := false
+
+	for rows.Next() {
+		var address string
+		var balance decimal.Decimal
+		err := rows.Scan(&address, &balance)
+		if err != nil {
+			return decimal.Decimal{}, err
+		}
+
+		if address == fromAddress{
+			senderBalance = balance
+			foundSender = true
+		}
+	}
+
+	if rows.Err() != nil {
+		return decimal.Decimal{}, rows.Err()
+	}
+
+	if !foundSender {
+		return decimal.Decimal{}, errors.New("sender wallet not found")
 	}
 
 	newSenderBalance := senderBalance.Sub(amount)
