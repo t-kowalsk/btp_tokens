@@ -9,12 +9,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
 	"github.com/99designs/gqlgen/graphql/handler"
+	"github.com/joho/godotenv"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
@@ -32,7 +35,16 @@ type Transfer struct {
 
 
 func setupTestDB(t *testing.T) *sql.DB {
-    db, err := sql.Open("postgres", "postgres://postgres:dbpass@localhost:5432/btp_tokens_test?sslmode=disable")
+    if err := godotenv.Load(); err != nil {
+		log.Println("cant load .env")
+	}
+
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatalf("error: couldnt get database url variable")
+	}
+
+    db, err := sql.Open("postgres", dbURL)
 
     require.NoError(t, err)
     database.Db = db
