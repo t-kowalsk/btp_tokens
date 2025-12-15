@@ -9,12 +9,12 @@ type Query struct {
 }
 
 type Transfer struct {
-	FromAddress string `json:"from_address"`
-	ToAddress   string `json:"to_address"`
-	Amount      string `json:"amount"`
+	FromAddress string  `json:"from_address"`
+	ToAddress   string  `json:"to_address"`
+	Amount      Decimal `json:"amount"`
 }
 
 type Wallet struct {
-	Address string `json:"address"`
-	Balance string `json:"balance"`
+	Address string  `json:"address"`
+	Balance Decimal `json:"balance"`
 }

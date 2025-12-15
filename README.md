@@ -3,32 +3,41 @@ This is a GraphQL API for transferring BTP tokens between wallets.
 
 ## Setup:
 Clone the repository:
-```
+```bash
 git clone https://github.com/t-kowalsk/btp_tokens.git
 ```
 
 Download project dependecies:
-```
+```bash
 go mod download
 ```
 
 Compose and run docker:
-```
+```bash
 docker-compose up -d
 ```
 
 The composed container named: **postgres-btp**, runs on port: **5432**, with password: **dbpass**. Compose creates two databases: **btp_tokens** and **btp_tokens_test**.
 
+Project includes two `.env.example files` (in root and in `test` folder) with database link envirenmental variable.  
+By default login is set to **postgres** and password is set to **dbpass**.
+
+To copy these files run in root directory:
+```bash
+cp .env.example .env
+cp test/.env.example test/.env
+```
+
 ## Run application
 To run the GraphQL server:
-```
+```bash
 go run ./server.go
 ```
 
 The server runs on http://localhost:8080/ address.
 
 To run application tests (*run with -v for more details*):
-```
+```bash
 go test ./test/...
 ```
 

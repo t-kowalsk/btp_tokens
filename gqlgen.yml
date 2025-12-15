@@ -157,3 +157,7 @@ models:
     model:
       - github.com/99designs/gqlgen/graphql.Int
       - github.com/99designs/gqlgen/graphql.Int64
+  Decimal:
+    model:
+      - "btp_tokens/graph/model.Decimal"
+

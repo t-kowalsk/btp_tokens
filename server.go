@@ -12,11 +12,23 @@ import (
 
 	database "btp_tokens/internal/pkg/db/migrations/postgres"
 	"btp_tokens/internal/wallets"
+
+	"github.com/joho/godotenv"
 )
 
 const defaultPort = "8080"
+const dbURLKey = "DATABASE_URL"
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("cant load .env")
+	}
+
+	dbURL := os.Getenv(dbURLKey)
+	if dbURL == "" {
+		log.Fatalf("error: couldnt get database url variable")
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = defaultPort
@@ -24,7 +36,7 @@ func main() {
 
 	router := chi.NewRouter()
 
-	database.InitDB()
+	database.InitDB(dbURL)
 	db := database.Db
 	defer database.CloseDB()
 	database.Migrate("internal/pkg/db/migrations/postgres")

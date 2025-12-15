@@ -535,7 +535,7 @@ func (ec *executionContext) _Wallet_balance(ctx context.Context, field graphql.C
 			return obj.Balance, nil
 		},
 		nil,
-		ec.marshalNString2string,
+		ec.marshalNDecimal2btp_tokensᚋgraphᚋmodelᚐDecimal,
 		true,
 		true,
 	)
@@ -548,7 +548,7 @@ func (ec *executionContext) fieldContext_Wallet_balance(_ context.Context, field
 		IsMethod:   false,
 		IsResolver: false,
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return nil, errors.New("field of type String does not have child fields")
+			return nil, errors.New("field of type Decimal does not have child fields")
 		},
 	}
 	return fc, nil
@@ -2030,7 +2030,7 @@ func (ec *executionContext) unmarshalInputTransfer(ctx context.Context, obj any)
 			it.ToAddress = data
 		case "amount":
 			ctx := graphql.WithPathContext(ctx, graphql.NewPathWithField("amount"))
-			data, err := ec.unmarshalNString2string(ctx, v)
+			data, err := ec.unmarshalNDecimal2btp_tokensᚋgraphᚋmodelᚐDecimal(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2560,6 +2560,16 @@ func (ec *executionContext) marshalNBoolean2bool(ctx context.Context, sel ast.Se
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNDecimal2btp_tokensᚋgraphᚋmodelᚐDecimal(ctx context.Context, v any) (model.Decimal, error) {
+	var res model.Decimal
+	err := res.UnmarshalGQL(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNDecimal2btp_tokensᚋgraphᚋmodelᚐDecimal(ctx context.Context, sel ast.SelectionSet, v model.Decimal) graphql.Marshaler {
+	return v
 }
 
 func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) (string, error) {
