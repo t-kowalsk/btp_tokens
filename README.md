@@ -25,7 +25,7 @@ By default login is set to **postgres** and password is set to **dbpass**.
 To copy these files run in root directory:
 ```bash
 cp .env.example .env
-cp tests/.env.example tests/.env
+cp test/.env.example test/.env
 ```
 
 ## Run application
