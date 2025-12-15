@@ -2,9 +2,11 @@
 #
 # https://gqlgen.com/getting-started/
 
+scalar Decimal
+
 type Wallet {
   address: String!
-  balance: String!
+  balance: Decimal!
 }
 
 type Query {
@@ -14,7 +16,7 @@ type Query {
 input Transfer {
   from_address: String!
   to_address: String!
-  amount: String!
+  amount: Decimal!
 }
 
 type Mutation {
