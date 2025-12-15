@@ -14,8 +14,8 @@ import (
 
 var Db *sql.DB
 
-func InitDB() {
-	db, err := sql.Open("postgres", "postgres://postgres:dbpass@localhost:5432/btp_tokens?sslmode=disable")
+func InitDB(db_url string) {
+	db, err := sql.Open("postgres", db_url)
 	if err != nil {
 		log.Panic(err)
 	}

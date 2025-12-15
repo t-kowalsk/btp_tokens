@@ -17,18 +17,14 @@ import (
 
 // Transfer is the resolver for the transfer field.
 func (r *mutationResolver) Transfer(ctx context.Context, input model.Transfer) (string, error) {
-	amount, err := decimal.NewFromString(input.Amount)
-	if err != nil{
-		return "", fmt.Errorf("invalid amount format: %w", err)
-
-	}
+	amount := decimal.Decimal(input.Amount)
 
 	if amount.IsNegative() || amount.IsZero() {
 		return "", errors.New("amount must be positive")
 	}
 
 	if !amount.Equal(amount.Truncate(0)) {
-    	return "", errors.New("amount must be an integer (cant be floating point)")
+		return "", errors.New("amount must be an integer (cant be floating point)")
 	}
 
 	updatedBalance, err := r.WalletsService.Transfer(ctx, input.FromAddress, input.ToAddress, amount)
@@ -46,7 +42,7 @@ func (r *mutationResolver) Transfer(ctx context.Context, input model.Transfer) (
 func (r *queryResolver) Empty(ctx context.Context) (*string, error) {
 	// panic(fmt.Errorf("not implemented: Empty - _empty"))
 	msg := "empty"
-    return &msg, nil
+	return &msg, nil
 }
 
 // Mutation returns MutationResolver implementation.
@@ -57,18 +53,3 @@ func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
 type mutationResolver struct{ *Resolver }
 type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-*/
