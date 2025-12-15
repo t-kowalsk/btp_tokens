@@ -19,7 +19,7 @@ docker-compose up -d
 
 The composed container named: **postgres-btp**, runs on port: **5432**, with password: **dbpass**. Compose creates two databases: **btp_tokens** and **btp_tokens_test**.
 
-Project includes two `.env.example files` (in root and in `test` folder) with database link envirenmental variable.  
+Project includes two `.env.example files` (in root and in `test` folder) with database link environmental variable.  
 By default login is set to **postgres** and password is set to **dbpass**.
 
 To copy these files run in root directory:
